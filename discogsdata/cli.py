@@ -1,6 +1,7 @@
 import logging
 
 import click
+import psycopg2
 
 from .logconfig import DEFAULT_LOG_FORMAT, logging_config
 
@@ -35,10 +36,39 @@ def cli(log_format, log_level, log_file):
     logging_config(log_format, log_level, log_file)
 
 
-@cli.command(name="command")
-@click.argument("example")
-def first_command(example):
-    "Command description goes here"
+@cli.group(name="fabric")
+def fabric():
+    pass
 
-    click.echo("Here is some output")
-    logging.info("Here's some log output")
+
+@fabric.command("release")
+@click.argument("number", type=click.INT)
+def release(number):
+    "Retrieve information regarding release Fabric release NUMBER"
+
+    logging.info("Extracting information for release %d", number)
+
+    conn = psycopg2.connect("")
+    cur = conn.cursor()
+    cur.execute(
+        """
+    select fabric_releases.release_id, release.title 
+    from fabric_releases, release 
+    where num=%s and release_id is not null and release.id = release_id
+    """,
+        (number,),
+    )
+    for row in cur.fetchall():
+        print(row)
+    conn.close()
+
+
+@cli.group(name="fabriclive")
+def fabriclive():
+    pass
+
+
+@fabriclive.command("release")
+@click.argument("number", type=click.INT)
+def release(number):
+    "Retrieve information regarding release Fabric release NUMBER"
