@@ -31,10 +31,8 @@ setup(
         [console_scripts]
         discogsdata=discogsdata.cli:cli
     """,
-    install_requires=["click"],
-    extras_require={
-        "test": ["pytest"]
-    },
-    tests_require=["discogsdata[test]"],
+    install_requires=["click", "psycopg2"],
+    extras_require={"test": ["pytest", "psycopg2"]},
+    tests_require=["discogsdata[test]", "psycopg2"],
     python_requires=">=3.6",
 )
