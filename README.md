@@ -18,9 +18,10 @@ Install this tool using `pip`:
 Usage instructions go here.
 
 First you’ll need a database of Discogs Data. This `discogsdata` CLI
-tool relies on data imported using the [discogs-xml2db]([1]:
-https://github.com/philipmat/discogs-xml2db). It also currently works
-strictly for the [PostgreSQL](https://postgresql.org) database.
+tool relies on data imported using the
+[discogs-xml2db](https://github.com/philipmat/discogs-xml2db). It also
+currently works strictly for the [PostgreSQL](https://postgresql.org)
+database.
 
 
 ## Development
