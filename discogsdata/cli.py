@@ -84,6 +84,31 @@ def fabric():
     pass
 
 
+def fabric_release_info(fabric_num, live=False, headers=True):
+    logging.info("Extracting release info for release %d", fabric_num)
+
+    conn = psycopg2.connect("")
+    cur = conn.cursor()
+
+    cur.execute(
+        FABRIC_RELEASE_QUERY,
+        (fabric_num, live),
+    )
+
+    if headers:
+        yield tuple((col.name for col in cur.description))
+
+    if not cur.rowcount:
+        logging.error("No info for fabric (%s) release: %s", live, number)
+        conn.close()
+        return
+
+    for row in cur:
+        yield row
+
+    conn.close()
+
+
 @fabric.command("release")
 @click.option(
     "--live",
@@ -93,30 +118,21 @@ def fabric():
     show_default=True,
     default=False,
 )
-@click.argument("number", type=click.INT)
-def release(number, live=False):
+@click.argument("fabricnums", nargs=-1, type=click.INT)
+def release(fabricnums, live=False):
     """
     Retrieve information regarding Fabric release NUMBER
     """
 
-    logging.info("Extracting release info for release %d", number)
+    logging.info("Extracting release info for releases %s", fabricnums)
 
-    conn = psycopg2.connect("")
-    cur = conn.cursor()
+    if not fabricnums:
+        logging.warn("No release numbers provided")
 
-    cur.execute(
-        FABRIC_RELEASE_QUERY,
-        (number, live),
-    )
+    for idx, fabricnum in enumerate(fabricnums):
+        for row in fabric_release_info(fabricnum, live, not idx):
+            print(row)
 
-    if not cur.rowcount:
-        logging.error("No info for fabric (%s) release: %s", live, number)
-        return 1
-
-    print(tuple((col.name for col in cur.description)))
-    for row in cur.fetchall():
-        print(row)
-    conn.close()
     return 0
 
 
