@@ -1,7 +1,14 @@
+import csv
+import json
 import logging
+import re
+import sys
+
+from copy import copy
 
 import click
 import psycopg2
+from tabulate import tabulate
 
 from .logconfig import DEFAULT_LOG_FORMAT, logging_config
 
@@ -48,6 +55,28 @@ left join fabric_tracks_artists on (fabric_tracks.track_id = fabric_tracks_artis
 order by release_id, track_sequence
 """
 
+RE_DISCOGS_ALT_CANONICAL_NAME = re.compile(
+    r"\[(?P<alt_name>[^]]*?)\]:\[(?P<canonical_name>[^]]*?)\]"
+)
+
+
+def extract_artist(re_match):
+    if re_match.group("alt_name"):
+        return re_match.group("alt_name")
+    else:
+        return re_match.group("canonical_name")
+
+
+def convert_names(seq):
+    return [
+        (
+            RE_DISCOGS_ALT_CANONICAL_NAME.sub(extract_artist, v)
+            if isinstance(v, str)
+            else v
+        )
+        for v in seq
+    ]
+
 
 @click.group()
 @click.version_option()
@@ -73,14 +102,20 @@ order by release_id, track_sequence
     show_default=True,
     default=None,
 )
-def cli(log_format, log_level, log_file):
+@click.option("--fmt", "tablefmt", help="Table format", default="simple")
+@click.pass_context
+def cli(ctx, **kw):
     "CLI for exploring/exploiting a DB populated from Discogs Data"
 
-    logging_config(log_format, log_level, log_file)
+    logging_config(kw["log_format"], kw["log_level"], kw["log_file"])
+    ctx.obj = copy(kw)
 
 
 @cli.group(name="fabric")
-def fabric():
+@click.option(
+    "+live/-live", "fabriclive", help="Query FabricLive releases", default=False
+)
+def fabric(fabriclive):
     pass
 
 
@@ -110,27 +145,24 @@ def fabric_release_info(fabric_num, live=False, headers=True):
 
 
 @fabric.command("release")
-@click.option(
-    "--live",
-    help="Select from Fabric Live series",
-    is_flag=True,
-    type=bool,
-    show_default=True,
-    default=False,
-)
 @click.argument("fabricnums", nargs=-1, type=click.INT)
-def release(fabricnums, live=False):
+@click.pass_context
+def release(ctx, fabricnums):
     """
     Retrieve information regarding Fabric release NUMBER
     """
 
-    logging.info("Extracting release info for releases %s", fabricnums)
+    series = "fabriclive" if ctx.parent.params.get("fabriclive", False) else "fabric"
+
+    logging.info(
+        "Extracting release info from series %s, for releases %s", series, fabricnums
+    )
 
     if not fabricnums:
         logging.warn("No release numbers provided")
 
     for idx, fabricnum in enumerate(fabricnums):
-        for row in fabric_release_info(fabricnum, live, not idx):
+        for row in fabric_release_info(fabricnum, (series == "fabriclive"), not idx):
             print(row)
 
     return 0
@@ -162,27 +194,72 @@ def fabric_tracks_info(fabric_num, live=False, headers=True):
 
 
 @fabric.command("tracks")
-@click.option(
-    "--live",
-    help="Select from Fabric Live series",
-    is_flag=True,
-    type=bool,
-    show_default=True,
-    default=False,
-)
 @click.argument("fabricnums", nargs=-1, type=click.INT)
-def tracks(fabricnums, live=False):
+@click.pass_context
+def tracks(ctx, fabricnums, live=False):
     """
     Retrieve information regarding tracks for Fabric release NUMBER
     """
+
+    series = "fabriclive" if ctx.parent.params.get("fabriclive", False) else "fabric"
+
+    logging.info(
+        "Extracting tracks info from series %s, for releases %s", series, fabricnums
+    )
 
     logging.info("Extracting tracks info for releases %s", fabricnums)
 
     if not fabricnums:
         logging.warn("No release numbers provided")
 
-    for idx, fabricnum in enumerate(fabricnums):
-        for row in fabric_tracks_info(fabricnum, live, not idx):
-            print(row)
+    logging.info("tablefmt: %s", ctx.obj["tablefmt"])
+
+    tablefmt = ctx.obj["tablefmt"]
+    if tablefmt == "json":
+        keys = []
+        for idx, fabricnum in enumerate(fabricnums):
+            for ridx, row in enumerate(
+                fabric_tracks_info(fabricnum, (series == "fabriclive"), not idx)
+            ):
+                if not idx and not ridx:
+                    hdrs = [
+                        "fabric_series",
+                    ] + list(row)
+                else:
+                    json.dump(
+                        dict(zip(hdrs, [series] + convert_names(list(row)))), sys.stdout
+                    )
+                    print()
+    elif tablefmt == "csv":
+        writer = csv.writer(sys.stdout)
+
+        for idx, fabricnum in enumerate(fabricnums):
+            for ridx, row in enumerate(
+                fabric_tracks_info(fabricnum, (series == "fabriclive"), not idx)
+            ):
+                if not idx and not ridx:
+                    row = ["fabric_series"] + list(row)
+                else:
+                    row = [series] + convert_names(list(row))
+
+                writer.writerow(row)
+    else:
+        hdrs = []
+        rows = []
+        for idx, fabricnum in enumerate(fabricnums):
+            for ridx, row in enumerate(
+                fabric_tracks_info(fabricnum, (series == "fabriclive"), not idx)
+            ):
+                if not idx and not ridx:
+                    hdrs = ["fabric_series"] + list(row)
+                else:
+                    rows.append([series] + convert_names(list(row)))
+
+        output_table = tabulate(
+            rows,
+            headers=hdrs,
+            tablefmt=tablefmt,
+        )
+        click.echo(output_table)
 
     return 0
