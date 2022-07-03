@@ -32,7 +32,7 @@ setup(
         discogsdata=discogsdata.cli:cli
     """,
     install_requires=["click", "psycopg2"],
-    extras_require={"test": ["pytest", "psycopg2"]},
+    extras_require={"test": ["pytest", "psycopg2", "tabulate"]},
     tests_require=["discogsdata[test]", "psycopg2"],
     python_requires=">=3.6",
 )
