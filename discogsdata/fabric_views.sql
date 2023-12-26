@@ -16,40 +16,44 @@ insert into fabric_release_blacklist values
    ;
 
 create materialized view if not exists fabric_releases as
-       (select false as fabric_live, release.id as release_id, master.id as master_id, release.title,
+       (select 'fabric' as fabric_series, release.id as release_id, master.id as master_id, release.title,
                (regexp_matches(release.title, 'Fabric\.? ?(\d+)', 'gi'))[1]::int as fabric_num
            from release, master where release.title ~* 'fabric\.? ?\d+' and
 	   not release.title ~* 'Radio Mix' and
 	   release.master_id is not null and
 	   release.status = 'Accepted' and
 	   not release.title ~* 'Sampler' and
+	   not release.title ~* 'Syndicated' and
 	   release.id not in (select * from fabric_release_blacklist) and
            master.id = release.master_id and release.id = master.main_release)
         union
-       (select false as fabric_live, release.id as release_id, release.master_id as master_id, release.title,
+       (select 'fabric' as fabric_series, release.id as release_id, release.master_id as master_id, release.title,
                (regexp_matches(release.title, 'Fabric\.? ?(\d+)', 'gi'))[1]::int as fabric_num
         from release where release.title ~* 'fabric\.? ?\d+' and
 	   not release.title ~* 'Radio Mix' and
 	   release.status = 'Accepted' and
 	   not release.title ~* 'Sampler' and
+	   not release.title ~* 'Syndicated' and
 	   release.id not in (select * from fabric_release_blacklist) and
            release.master_id is null)
 	union
-       (select true as fabric_live, release.id as release_id, master.id as master_id, release.title,
+       (select 'fabriclive' as fabric_series, release.id as release_id, master.id as master_id, release.title,
                (regexp_matches(release.title, 'FabricLive\.? ?(\d+)', 'gi'))[1]::int as fabric_num
         from release, master where release.title ~* 'fabriclive\.? ?\d+' and
 	not release.title ~* 'Radio Mix' and
 	release.status = 'Accepted' and
 	not release.title ~* 'Sampler' and
+	not release.title ~* 'Syndicated' and
 	release.id not in (select * from fabric_release_blacklist) and
         master.id = release.master_id and release.id = master.main_release)
        union
-       (select true as fabric_live, release.id as release_id, release.master_id as master_id, release.title,
+       (select 'fabriclive' as fabric_series, release.id as release_id, release.master_id as master_id, release.title,
                (regexp_matches(release.title, 'FabricLive\.? ?(\d+)', 'gi'))[1]::int as fabric_num
         from release where release.title ~* 'fabriclive\.? ?\d+' and
 	not release.title ~* 'Radio Mix' and
 	release.status = 'Accepted' and
 	not release.title ~* 'Sampler' and
+	not release.title ~* 'Syndicated' and
 	release.id not in (select * from fabric_release_blacklist) and
         release.master_id is null);
 
@@ -57,7 +61,7 @@ create materialized view if not exists fabric_release_artists as
 select
 fabric_releases.release_id,
 fabric_num,
-fabric_live,
+fabric_series,
 artist_id,
 artist_name,
 anv
@@ -68,7 +72,7 @@ where not extra::bool;
 create materialized view if not exists fabric_tracks as
 select
 fabric_releases.fabric_num as fabric_num,
-fabric_releases.fabric_live as fabric_live,
+fabric_releases.fabric_series as fabric_series,
 fabric_releases.release_id as release_id,
 release.title as release_title,
 release_track.id as track_id,
