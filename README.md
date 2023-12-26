@@ -1,9 +1,11 @@
 # discogsdata
 
+<!---
 [![PyPI](https://img.shields.io/pypi/v/discogsdata.svg)](https://pypi.org/project/discogsdata/)
 [![Changelog](https://img.shields.io/github/v/release/crossjam/discogsdata?include_prereleases&label=changelog)](https://github.com/crossjam/discogsdata/releases)
-[![Tests](https://github.com/crossjam/discogsdata/workflows/Test/badge.svg)](https://github.com/crossjam/discogsdata/actions?query=workflow%3ATest)
+--->
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/crossjam/discogsdata/blob/master/LICENSE)
+[![Tests](https://github.com/crossjam/discogsdata/workflows/Test/badge.svg)](https://github.com/crossjam/discogsdata/actions?query=workflow%3ATest)
 
 CLI for exploring/exploiting a DB populated from Discogs Data
 
