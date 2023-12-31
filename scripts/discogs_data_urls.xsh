@@ -2,7 +2,9 @@
 import re
 import sys
 import json
+import email.utils
 
+from datetime import datetime
 from sqlite_utils.db import Database
 from sqlite_utils.utils import TypeTracker
 
@@ -21,6 +23,8 @@ if __name__ == "__main__":
     for year in range(8, 24):
         url = f"https://discogs-data-dumps.s3.us-west-2.amazonaws.com/index.html?prefix=data/20{year:02}"
         resp = session.get(url)
+        # Discogs data pages employ embedded JavaScript to fully render
+        # this gives the requests_html engine enough time to complete
         resp.html.render(sleep=1)
         urls.extend(
             [
@@ -34,22 +38,26 @@ if __name__ == "__main__":
     print(f"{len(urls)} in total", file=sys.stderr)
 
     url_rows = []
-    for i, url in enumerate(urls):
+    for url in urls:
         clength = -1
         full_url = "http:" + url[1]
         metadata = {}
     	for i, line in enumerate( !(http --headers HEAD @(full_url) )):
+            # Skip the first line which is the HTTP response ine for HEAD request
             if not (i and line.strip()): continue
-            # print(line.strip())
             h, v = line.strip().split(maxsplit=1)
             metadata[h[:-1]] = v
             if h.startswith("Content-Length"):
                 clength = int(v)
 
+        probe_date = metadata.get("Date", None)
+        probe_date_iso = email.utils.parsedate_to_datetime(probe_date).isoformat() if probe_date else None
+
         row = { "year": url[0],
                 "url": f"http:{url[1]}",
                 "content_length": clength,
                 "http_metadata": metadata,
+                "probe_date": probe_date_iso,
                }
 
 	m = DATA_URL_RGX.search(full_url)
@@ -65,7 +73,8 @@ if __name__ == "__main__":
         json.dump(row, sys.stdout, indent=None)
         sys.stdout.write("\n")
 
-    # sqlite-utils insert discogsdata.db dataurls discogs_data_urls.jsonl --nl
+    # Equivalent to
+    # sqlite-utils insert $ARGS[1] dataurls discogs_data_urls.jsonl --nl
 
     if len($ARGS) > 1:
         db_name, db_file = $ARGS[1], pf"{$ARGS[1]}"
